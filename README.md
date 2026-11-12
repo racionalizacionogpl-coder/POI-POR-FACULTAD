@@ -27,9 +27,9 @@ El `onEdit` es un disparador simple: no hay que instalar nada más.
 
 ## Cómo se asocia cada hoja a su facultad
 
-Por el nombre de la hoja: debe contener la **sigla** (`F09_FCA`) o el **formulario** (`F09`).
-FPSIC, FIEE y FISI no tienen formulario en el Anexo 1, así que su hoja debe contener la sigla
-(por ejemplo `F21_FPSIC`).
+Por el nombre de la hoja: debe contener la **sigla** (`F09_FCA`). La sigla manda; el número de
+formulario solo se usa si ninguna sigla coincide, porque la numeración de las hojas puede diferir
+del Anexo 1 (por ejemplo `F20_FISI`, aunque F20 sea el formulario de FII).
 
 | Hoja | Facultad | Centro de costo (PDF) |
 |---|---|---|

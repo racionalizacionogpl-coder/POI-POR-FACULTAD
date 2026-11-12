@@ -41,7 +41,8 @@ vm.runInContext(code, ctx);
 const X = ctx.__x;
 
 // 1) deteccion de hojas
-for (const [n, s] of [['F01_FM', 'FM'], ['F09_FCA', 'FCA'], ['F15_FCCSS', 'FCCSS'], ['F06_FE', 'FE'], ['FPSIC', 'FPSIC'], ['F21_FIEE', 'FIEE'], ['FISI', 'FISI'], ['F20_FII', 'FII']])
+for (const [n, s] of [['F01_FM', 'FM'], ['F09_FCA', 'FCA'], ['F15_FCCSS', 'FCCSS'], ['F06_FE', 'FE'], ['FPSIC', 'FPSIC'], ['F21_FIEE', 'FIEE'], ['FISI', 'FISI'], ['F20_FII', 'FII'],
+  ['F20_FISI', 'FISI'], ['F17_FII', 'FII'], ['F18_FPSIC', 'FPSIC'], ['F19_FIEE', 'FIEE'], ['F05', 'FO']])
   assert.strictEqual(X.facultadDeHoja_(n)?.sigla, s, n);
 assert.strictEqual(X.facultadDeHoja_('Anexo 1'), null);
 assert.strictEqual(X.facultadDeHoja_('POI_LISTAS'), null);

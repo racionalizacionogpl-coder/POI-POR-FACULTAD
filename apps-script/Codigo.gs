@@ -106,12 +106,16 @@ function diagnostico() {
 
 const CACHE_HOJA_ = {};
 
-/** F09_FCA -> facultad FCA. Compara cada "palabra" del nombre con sigla y formulario. */
+/**
+ * F09_FCA -> facultad FCA. Compara cada "palabra" del nombre con la sigla y, solo si
+ * ninguna sigla coincide, con el formulario. La sigla manda porque el número de
+ * formulario no es confiable (ej. F20_FISI: F20 es el formulario de FII, pero la hoja es FISI).
+ */
 function facultadDeHoja_(nombre) {
   if (nombre in CACHE_HOJA_) return CACHE_HOJA_[nombre];
   const tokens = String(nombre).toUpperCase().split(/[^A-Z0-9]+/).filter(String);
-  const hits = POI_FACULTADES.filter(f =>
-    tokens.indexOf(f.sigla) >= 0 || (f.formulario && tokens.indexOf(f.formulario) >= 0));
+  let hits = POI_FACULTADES.filter(f => tokens.indexOf(f.sigla) >= 0);
+  if (!hits.length) hits = POI_FACULTADES.filter(f => f.formulario && tokens.indexOf(f.formulario) >= 0);
   return (CACHE_HOJA_[nombre] = hits.length === 1 ? hits[0] : null);
 }
 
