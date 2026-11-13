@@ -12,6 +12,8 @@ class Range {
   setValues(a) { a.forEach((row, i) => row.forEach((x, j) => this.sh.cells[(this.r + i) + ',' + (this.c + j)] = x)); return this; }
   clearContent() { delete this.sh.cells[this.r + ',' + this.c]; return this; }
   setDataValidation(v) { for (let i = 0; i < this.nr; i++) for (let j = 0; j < this.nc; j++) this.sh.val[(this.r + i) + ',' + (this.c + j)] = v; return this; }
+  getDataValidation() { return this.sh.val[this.r + ',' + this.c] || null; }
+  getDataValidations() { const o = []; for (let i = 0; i < this.nr; i++) { const row = []; for (let j = 0; j < this.nc; j++) row.push(this.sh.val[(this.r + i) + ',' + (this.c + j)] || null); o.push(row); } return o; }
   setFontWeight() { return this; } setWrap() { return this; } setVerticalAlignment() { return this; }
 }
 class Sheet {
@@ -33,7 +35,7 @@ class SS {
   toast() {}
 }
 const ss = new SS();
-const builder = () => { const o = {}; const b = { requireValueInRange(r) { o.range = r; return b; }, setAllowInvalid() { return b; }, setHelpText() { return b; }, build() { return o; } }; return b; };
+const builder = () => { const o = {}; const b = { requireValueInRange(r) { o.range = r; return b; }, setAllowInvalid() { return b; }, setHelpText() { return b; }, build() { o.getCriteriaValues = () => [o.range, true]; return o; } }; return b; };
 const ctx = { SpreadsheetApp: { newDataValidation: builder, getActive: () => ss, getUi: () => ({ alert: () => 'YES', Button: { YES: 'YES' }, ButtonSet: { YES_NO: 0 } }) }, console };
 vm.createContext(ctx);
 const code = ['Datos.gs', 'Codigo.gs'].map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n') +
@@ -97,6 +99,40 @@ assert.strictEqual(fca.v(r0 + 2, 2), '');
 // 9) PEGAR un AEI de otra facultad (inexistente en FCA): queda marcado, AOI limpia y sin lista
 fca.getRange(r0 + 3, 1).setValue('AEI.99.99 Inexistente'); fca.getRange(r0 + 3, 2).setValue('x'); edit(r0 + 3, 1, 2);
 assert.strictEqual(fca.v(r0 + 3, 2), ''); assert.deepStrictEqual(fca.allowed(r0 + 3, 2), [X.CFG.PH_AOI]);
+// 8b) COPIAR Y PEGAR en otra zona (caso reportado): fila con AEI y AOI vacia -> pegar en D:E
+const copiar = (sh, f, c, nf, nc, f2, c2) => { for (let i = 0; i < nf; i++) for (let j = 0; j < nc; j++) {
+  const k = (f + i) + ',' + (c + j), k2 = (f2 + i) + ',' + (c2 + j);
+  if (sh.cells[k] !== undefined) sh.cells[k2] = sh.cells[k]; else delete sh.cells[k2];
+  if (sh.val[k]) sh.val[k2] = sh.val[k]; else delete sh.val[k2]; } };
+fca.getRange(20, 1).setValue(X.POI_AEI['AEI.01.05']); edit(20, 1);         // origen: AEI sin AOI
+assert.strictEqual(fca.allowed(20, 2).length, 4);                           // AEI.01.05 tiene 4 AOI en FCA
+copiar(fca, 20, 1, 1, 2, 30, 4);                                            // pegar en D30:E30 (col. no configuradas)
+fca.cells['30,5'] = undefined; delete fca.cells['30,5'];
+fca.val['30,5'] = fca.val['2,2'];                                           // AOI pegada con el aviso (como en la captura)
+edit(30, 4, 2);
+assert.strictEqual(fca.allowed(30, 5).length, 4, 'AOI de la zona pegada debe listar las actividades del AEI');
+assert.ok(fca.allowed(30, 5)[0].startsWith('AOI'));
+// 8c) pegar el AEI mas abajo del rango configurado (fila 500, col A) y cambiarlo despues
+copiar(fca, 20, 1, 1, 2, 500, 1); edit(500, 1, 2);
+assert.strictEqual(fca.allowed(500, 2).length, 4);
+fca.getRange(500, 2).setValue(fca.allowed(500, 2)[0]); edit(500, 2);
+fca.getRange(500, 1).setValue(X.POI_AEI['AEI.01.02']); edit(500, 1);
+assert.strictEqual(fca.v(500, 2), ''); assert.strictEqual(fca.allowed(500, 2).length, 5);
+// 8d) pegar SOLO VALOR (sin validacion) en G:H: se detecta por el texto del AEI
+fca.getRange(40, 7).setValue(X.POI_AEI['AEI.01.01']); edit(40, 7);
+assert.strictEqual(fca.allowed(40, 7).length, 12); assert.strictEqual(fca.allowed(40, 8).length, 7);
+// 8e) copiar una fila completa A:B con AOI elegida y pegar en otra fila de A:B -> se conserva
+fca.getRange(21, 1).setValue(X.POI_AEI['AEI.01.01']); edit(21, 1);
+fca.getRange(21, 2).setValue(fca.allowed(21, 2)[2]); edit(21, 2);
+copiar(fca, 21, 1, 1, 2, 22, 1); edit(22, 1, 2);
+assert.strictEqual(fca.v(22, 2), fca.v(21, 2)); assert.strictEqual(fca.allowed(22, 2).length, 7);
+// 8f) pegar solo la AOI de otra fila en una fila de otro AEI: se limpia (no coincide con su AEI)
+fca.getRange(23, 1).setValue(X.POI_AEI['AEI.01.02']); edit(23, 1);
+copiar(fca, 21, 2, 1, 1, 23, 2); edit(23, 2);
+assert.strictEqual(fca.v(23, 2), ''); assert.strictEqual(fca.allowed(23, 2).length, 5);
+// 8g) no pisar texto ajeno: AEI pegado como valor al lado de una nota del usuario
+fca.getRange(60, 7).setValue(X.POI_AEI['AEI.01.01']); fca.getRange(60, 8).setValue('nota del usuario'); edit(60, 7);
+assert.strictEqual(fca.v(60, 8), 'nota del usuario');
 // 9b) hoja que no es facultad: no hace nada
 const otra = ss.insertSheet('Hoja 1'); otra.getRange(2, 1).setValue('x');
 X.onEdit({ range: otra.getRange(2, 1) });

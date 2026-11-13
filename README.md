@@ -15,12 +15,17 @@ Cada facultad solo muestra lo que tiene en el PDF.
 
 ## Copiar y pegar
 
-* **Dentro de la misma hoja o entre hojas del mismo Sheet:** se puede copiar A:B y pegar. Al pegar,
-  el script revisa cada fila: si la AOI pertenece al AEI pegado se conserva; si no, se limpia.
-  Un AEI que la facultad de destino no tiene queda marcado como inválido (triángulo rojo).
+* **Dentro del mismo Sheet (misma hoja o entre hojas):** se puede copiar el AEI, o AEI + AOI, y
+  pegarlo **en cualquier lugar de la hoja**, incluso fuera de las columnas A:B o más abajo de la
+  fila 301. El script reconoce el AEI pegado (por su desplegable o por su texto) y deja en la celda
+  de **su derecha** la lista de actividades de ese AEI. Convención: la AOI va a la derecha del AEI.
+* Si se pega AEI + AOI y la AOI pertenece a ese AEI, se conserva; si no, se limpia.
+* Si se pega solo una AOI en una fila con otro AEI, se limpia (no coincide con su AEI).
+* Un AEI que la facultad de destino no tiene queda marcado como inválido (triángulo rojo).
+* No se pisa texto ajeno: si a la derecha de un AEI pegado hay una nota del usuario, se deja como está.
 * **A otro archivo, Excel, Word o correo:** se pega el texto (`AEI.01.01 …` y
   `AOI0000… - …`). Los desplegables no viajan a otro archivo.
-* **Pegar solo el valor:** `Ctrl+Shift+V` evita arrastrar formato y validaciones.
+* **Pegar solo el valor:** `Ctrl+Shift+V` también funciona: el AEI se reconoce por su texto.
 * **Pegar desde fuera hacia el Sheet:** el texto debe coincidir exactamente con el de las listas.
 * No borrar la hoja oculta `POI_LISTAS`: es el origen de los desplegables.
 * Si se hace *Archivo → Hacer una copia*, el script y las listas se copian con el archivo

@@ -253,7 +253,7 @@ function aplicarHoja_(hoja, fac, listas) {
   const idx = indice_(fac);
   const va = hoja.getRange(r0, CFG.COL_AEI, n, 1).getValues().map(r => String(r[0]).trim());
   for (let i = 0; i < n; i++) {
-    if (va[i]) refrescarListaAoi_(hoja, fac, idx, listas, r0 + i, va[i]);
+    if (va[i]) refrescarListaAoi_(hoja, fac, idx, listas, r0 + i, CFG.COL_AOI, va[i]);
   }
 }
 
@@ -261,13 +261,13 @@ function reglaAei_(listas, fac) {
   return reglaDeLista_(listas, fac.sigla + '|AEI', 'Seleccione la acción estratégica de la lista');
 }
 
-/** Fija la lista de AOI de una fila según el AEI actual. */
-function refrescarListaAoi_(hoja, fac, idx, listas, fila, aeiTxt) {
+/** Fija la lista de AOI de la celda (fila, col) según el AEI indicado. */
+function refrescarListaAoi_(hoja, fac, idx, listas, fila, col, aeiTxt) {
   const codAei = idx.aeiPorEtiqueta[aeiTxt];
   const regla = codAei
     ? reglaDeLista_(listas, fac.sigla + '|' + codAei, 'Seleccione la actividad operativa (código - denominación)')
     : reglaDeLista_(listas, 'PH_AOI', CFG.PH_AOI);
-  hoja.getRange(fila, CFG.COL_AOI).setDataValidation(regla);
+  hoja.getRange(fila, col).setDataValidation(regla);
 }
 
 /* ------------------------------------------------------------------ */
@@ -303,7 +303,27 @@ function quitarColumnaOei() {
 
 /* ------------------------------------------------------------------ */
 /*  Disparador onEdit (simple: no requiere autorización adicional)     */
+/*                                                                     */
+/*  Funciona en cualquier lugar de la hoja, no solo en las columnas    */
+/*  configuradas, para que copiar y pegar un AEI en otra zona siga     */
+/*  dando su lista de actividades. Convención: la AOI está en la       */
+/*  celda inmediatamente a la derecha del AEI.                         */
 /* ------------------------------------------------------------------ */
+
+/** Tipo de lista (AEI / AOI) a la que apunta una regla de validación, o '' si no es nuestra. */
+function tipoDeRegla_(regla, listas) {
+  try {
+    if (!regla) return '';
+    const v = regla.getCriteriaValues();
+    const r = v && v[0];
+    if (!r || typeof r.getSheet !== 'function' || r.getSheet().getName() !== CFG.HOJA_LISTAS) return '';
+    const inicio = r.getRow();
+    for (const clave in listas.mapa) {
+      if (listas.mapa[clave].fila === inicio) return /\|AEI$/.test(clave) ? 'AEI' : 'AOI';
+    }
+  } catch (err) { /* regla de otro tipo */ }
+  return '';
+}
 
 function onEdit(e) {
   try {
@@ -313,51 +333,78 @@ function onEdit(e) {
     if (!fac) return;
 
     const rg = e.range;
-    const cIni = rg.getColumn(), cFin = cIni + rg.getNumColumns() - 1;
-    const editadas = {
-      AEI: CFG.COL_AEI >= cIni && CFG.COL_AEI <= cFin,
-      AOI: CFG.COL_AOI >= cIni && CFG.COL_AOI <= cFin,
-    };
-    if (!editadas.AEI && !editadas.AOI) return;
-
-    const fIni = Math.max(rg.getRow(), CFG.FILA_INICIO);
-    const fFin = Math.min(rg.getRow() + rg.getNumRows() - 1, CFG.FILA_INICIO + CFG.FILAS - 1,
-                          fIni + CFG.MAX_FILAS_POR_EDICION - 1);
-    if (fFin < fIni) return;
+    const f0 = rg.getRow(), c0 = rg.getColumn();
+    const nf = Math.min(rg.getNumRows(), CFG.MAX_FILAS_POR_EDICION);
+    const nc = Math.min(rg.getNumColumns(), 30);
+    const zona = hoja.getRange(f0, c0, nf, nc);
+    const valores = zona.getValues();
+    const reglas = zona.getDataValidations();
 
     const ss = hoja.getParent();
     const listas = obtenerListas_(ss);
     const idx = indice_(fac);
-    for (let f = fIni; f <= fFin; f++) procesarFila_(hoja, fac, idx, listas, f, editadas);
+    const enFilasCfg = f => f >= CFG.FILA_INICIO && f < CFG.FILA_INICIO + CFG.FILAS;
+
+    // 1) Qué celdas son AEI: columna configurada, regla de lista AEI (copiada al pegar)
+    //    o valor que coincide con un AEI de la facultad (pegado solo como valor).
+    //    Una AOI editada remite a su AEI de la izquierda.
+    const aeiCeldas = {};
+    for (let i = 0; i < nf; i++) {
+      for (let j = 0; j < nc; j++) {
+        const fila = f0 + i, col = c0 + j;
+        const v = String(valores[i][j]).trim();
+        const tipo = tipoDeRegla_(reglas[i][j], listas);
+        const cfgAei = col === CFG.COL_AEI && enFilasCfg(fila);
+        const cfgAoi = col === CFG.COL_AOI && enFilasCfg(fila);
+        if (cfgAei || tipo === 'AEI' || idx.aeiPorEtiqueta[v]) {
+          aeiCeldas[fila + ',' + col] = { fila: fila, col: col, cfg: cfgAei };
+        } else if (cfgAoi || tipo === 'AOI' || idx.aoiPorEtiqueta[v] || v === CFG.PH_AOI) {
+          const colAei = cfgAoi ? CFG.COL_AEI : col - 1;
+          if (colAei < 1) continue;
+          const izq = hoja.getRange(fila, colAei);
+          const vi = String(izq.getValue()).trim();
+          if (cfgAoi || idx.aeiPorEtiqueta[vi] || tipoDeRegla_(izq.getDataValidation(), listas) === 'AEI') {
+            aeiCeldas[fila + ',' + colAei] = { fila: fila, col: colAei, cfg: cfgAoi };
+          }
+        }
+      }
+    }
+    Object.keys(aeiCeldas).forEach(k => procesarAei_(hoja, fac, idx, listas, aeiCeldas[k]));
   } catch (err) {
     SpreadsheetApp.getActive().toast('Error en desplegables POI: ' + err.message, 'POI 2026', 10);
   }
 }
 
-function procesarFila_(hoja, fac, idx, listas, fila, editadas) {
-  const cA = hoja.getRange(fila, CFG.COL_AEI);
-  const cP = hoja.getRange(fila, CFG.COL_AOI);
+/** Sincroniza la AOI (celda a la derecha) con el AEI de la celda (fila, col). */
+function procesarAei_(hoja, fac, idx, listas, c) {
+  const cA = hoja.getRange(c.fila, c.col);
+  const colAoi = c.col === CFG.COL_AEI ? CFG.COL_AOI : c.col + 1;
+  const cP = hoja.getRange(c.fila, colAoi);
   const aei = String(cA.getValue()).trim();
   let aoi = String(cP.getValue()).trim();
-
-  // Un placeholder elegido por error equivale a vacío.
-  if (aoi === CFG.PH_AOI) { aoi = ''; cP.clearContent(); }
-
   const codAei = idx.aeiPorEtiqueta[aei];
   let datosAoi = idx.aoiPorEtiqueta[aoi];
 
-  // Cambió (o se pegó) el AEI: la AOI actual debe pertenecer a él; si no, se limpia.
-  if (editadas.AEI && aoi !== '' && !(codAei && datosAoi && datosAoi.aei === codAei)) {
+  // Solo se toca la celda de la derecha si es de las columnas configuradas o si está vacía,
+  // trae una AOI conocida / el aviso, o ya tiene una lista nuestra: así no se pisa texto ajeno.
+  const reglaAoi = cP.getDataValidation();
+  const nuestra = c.cfg || aoi === '' || aoi === CFG.PH_AOI || datosAoi ||
+                  tipoDeRegla_(reglaAoi, listas) !== '';
+  if (!nuestra) return;
+
+  if (aoi === CFG.PH_AOI) { cP.clearContent(); aoi = ''; }
+  // La AOI actual debe pertenecer al AEI; si no, se limpia.
+  if (aoi !== '' && !(codAei && datosAoi && datosAoi.aei === codAei)) {
     cP.clearContent(); aoi = ''; datosAoi = undefined;
   }
 
-  // Se restablece la lista del AEI (por si se pegó desde otra hoja con otra validación).
-  if (editadas.AEI) cA.setDataValidation(reglaAei_(listas, fac));
-  refrescarListaAoi_(hoja, fac, idx, listas, fila, aei);
+  // Se restablece la lista del AEI (por si se pegó desde otra hoja con otra validación) y la de la AOI.
+  cA.setDataValidation(reglaAei_(listas, fac));
+  refrescarListaAoi_(hoja, fac, idx, listas, c.fila, colAoi, aei);
 
-  // Columnas opcionales: código y denominación por separado.
-  if (CFG.COL_COD > 0) hoja.getRange(fila, CFG.COL_COD).setValue(datosAoi ? datosAoi.cod : '');
-  if (CFG.COL_DENOM > 0) hoja.getRange(fila, CFG.COL_DENOM).setValue(datosAoi ? datosAoi.den : '');
+  // Columnas opcionales (solo zona configurada): código y denominación por separado.
+  if (c.cfg && CFG.COL_COD > 0) hoja.getRange(c.fila, CFG.COL_COD).setValue(datosAoi ? datosAoi.cod : '');
+  if (c.cfg && CFG.COL_DENOM > 0) hoja.getRange(c.fila, CFG.COL_DENOM).setValue(datosAoi ? datosAoi.den : '');
 }
 
 /* ------------------------------------------------------------------ */
