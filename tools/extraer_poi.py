@@ -12,15 +12,16 @@ import sys
 
 import pymupdf as fitz
 
-# sigla -> (formulario, centro de costo del PDF).  Igual que el Anexo 1 del Sheet.
+# sigla -> (formulario, centro de costo del PDF). Formularios = numeracion de las pestañas
+# del libro 'ANEXO 1 - Inventario de productos y procesos' (F17_FII ... F20_FISI).
 FACULTADES = [
     ("FM", "F01", "01.30"), ("FDCP", "F02", "01.22"), ("FLCH", "F03", "01.29"),
     ("FFB", "F04", "01.24"), ("FO", "F05", "01.32"), ("FE", "F06", "01.23"),
     ("FQIQ", "F07", "01.34"), ("FMV", "F08", "01.31"), ("FCA", "F09", "01.15"),
     ("FCB", "F10", "01.16"), ("FCC", "F11", "01.17"), ("FCE", "F12", "01.18"),
     ("FCF", "F13", "01.19"), ("FCM", "F14", "01.20"), ("FCCSS", "F15", "01.21"),
-    ("FIGMMG", "F16", "01.27"), ("FII", "F20", "01.28"), ("FPSIC", None, "01.33"),
-    ("FIEE", None, "01.26"), ("FISI", None, "01.25"),
+    ("FIGMMG", "F16", "01.27"), ("FII", "F17", "01.28"), ("FPSIC", "F18", "01.33"),
+    ("FIEE", "F19", "01.26"), ("FISI", "F20", "01.25"),
 ]
 
 
@@ -110,18 +111,15 @@ def main(pdf, salida):
             "sigla": sigla, "formulario": form, "cc": cc, "nombre": items[0]["nombre"],
             "items": [[i["oei"], i["aei"], i["aoi"], i["desc"]] for i in items],
         })
-    # Catalogos de OEI y AEI (texto completo) para no repetirlos en cada fila.
-    oeis, aeis = {}, {}
+    # Catalogo de AEI (texto completo) para no repetirlo en cada fila. El OEI ya no se usa.
+    aeis = {}
     for o in out:
-        for oei, aei, _, _ in o["items"]:
-            co, ca = oei.split()[0], aei.split()[0]
-            assert ca.replace("AEI", "OEI").rsplit(".", 1)[0] == co, (oei, aei)
-            assert oeis.setdefault(co, oei) == oei and aeis.setdefault(ca, aei) == aei
+        for _, aei, _, _ in o["items"]:
+            assert aeis.setdefault(aei.split()[0], aei) == aei
     with open(salida, "w", encoding="utf-8") as fh:
         fh.write("/**\n * DATOS GENERADOS con tools/extraer_poi.py a partir del PDF POI 2026 (Anexo B-5,\n"
                  " * paginas 20-49). No editar a mano: volver a ejecutar el extractor.\n"
-                 " * items: [codigo AEI, codigo AOI, denominacion AOI]; el OEI se deduce del AEI.\n */\n")
-        fh.write("const POI_OEI = " + json.dumps(oeis, ensure_ascii=False, indent=1) + ";\n\n")
+                 " * items: [codigo AEI, codigo AOI, denominacion AOI]. Sin OEI.\n */\n")
         fh.write("const POI_AEI = " + json.dumps(aeis, ensure_ascii=False, indent=1) + ";\n\n")
         fh.write("const POI_FACULTADES = [\n")
         for o in out:

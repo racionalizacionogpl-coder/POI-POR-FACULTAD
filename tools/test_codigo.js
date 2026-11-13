@@ -39,7 +39,7 @@ const builder = () => { const o = {}; const b = { requireValueInRange(r) { o.ran
 const ctx = { SpreadsheetApp: { newDataValidation: builder, getActive: () => ss, getUi: () => ({ alert: () => 'YES', Button: { YES: 'YES' }, ButtonSet: { YES_NO: 0 } }) }, console };
 vm.createContext(ctx);
 const code = ['Datos.gs', 'Codigo.gs'].map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n') +
-  '\n;this.__x = { POI_FACULTADES, POI_OEI, POI_AEI, CFG, indice_, facultadDeHoja_, aplicarHoja_, generarListas_, onEdit, hojasDeFacultad_, quitarColumnaOei };';
+  '\n;this.__x = { POI_FACULTADES, POI_AEI, CFG, indice_, facultadDeHoja_, aplicarHoja_, generarListas_, onEdit, hojasDeFacultad_, quitarColumnaOei };';
 vm.runInContext(code, ctx);
 const X = ctx.__x;
 
@@ -140,7 +140,7 @@ X.onEdit({ range: otra.getRange(2, 1) });
 const fo = ss.insertSheet('F05_FO'); const facFo = X.facultadDeHoja_('F05_FO');
 fo.getRange(1, 1).setValue('OEI'); fo.getRange(1, 2).setValue('AEI'); fo.getRange(1, 3).setValue('AOI (CÓDIGO - DENOMINACIÓN)');
 const aeiFo = X.POI_FACULTADES.find(f => f.sigla === 'FO').items[0];
-fo.getRange(2, 1).setValue(X.POI_OEI['OEI.0' + aeiFo[0][4]]);
+fo.getRange(2, 1).setValue('OEI.01 texto de OEI de la version anterior');
 fo.getRange(2, 2).setValue(X.POI_AEI[aeiFo[0]]);
 fo.getRange(2, 3).setValue(aeiFo[1] + ' - ' + aeiFo[2]);
 X.quitarColumnaOei();

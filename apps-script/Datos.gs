@@ -1,15 +1,8 @@
 /**
  * DATOS GENERADOS con tools/extraer_poi.py a partir del PDF POI 2026 (Anexo B-5,
  * paginas 20-49). No editar a mano: volver a ejecutar el extractor.
- * items: [codigo AEI, codigo AOI, denominacion AOI]; el OEI se deduce del AEI.
+ * items: [codigo AEI, codigo AOI, denominacion AOI]. Sin OEI.
  */
-const POI_OEI = {
- "OEI.01": "OEI.01 GARANTIZAR LA CALIDAD DE LA FORMACIÓN INTEGRAL DE LOS ESTUDIANTES",
- "OEI.02": "OEI.02 Fortalecer la investigación científica; innovación; desarrollo; transferencia tecnológica y emprendimiento de la universidad",
- "OEI.03": "OEI.03 Fortalecer la responsabilidad social en beneficio de la sociedad",
- "OEI.04": "OEI.04 Modernizar la gestión interna"
-};
-
 const POI_AEI = {
  "AEI.01.01": "AEI.01.01 Planes curriculares actualizados para los estudiantes",
  "AEI.01.02": "AEI.01.02 Enseñanza académica en programas de estudio acreditados para estudiantes universitarios",
@@ -613,7 +606,7 @@ const POI_FACULTADES = [
   ]
  },
  {
-  "sigla": "FII", "formulario": "F20", "cc": "01.28", "nombre": "FACULTAD DE INGENIERÍA INDUSTRIAL",
+  "sigla": "FII", "formulario": "F17", "cc": "01.28", "nombre": "FACULTAD DE INGENIERÍA INDUSTRIAL",
   "items": [
    ["AEI.01.01", "AOI00008800339", "AUTOEVALUACIÓN DEL CURRÍCULO DE PREGRADO"],
    ["AEI.01.01", "AOI00008800341", "IMPLEMENTACIÓN DEL CURRÍCULO DE PREGRADO"],
@@ -651,7 +644,7 @@ const POI_FACULTADES = [
   ]
  },
  {
-  "sigla": "FPSIC", "formulario": null, "cc": "01.33", "nombre": "FACULTAD DE PSICOLOGÍA",
+  "sigla": "FPSIC", "formulario": "F18", "cc": "01.33", "nombre": "FACULTAD DE PSICOLOGÍA",
   "items": [
    ["AEI.01.01", "AOI00008800884", "AUTOEVALUACIÓN DEL CURRÍCULO DE PREGRADO"],
    ["AEI.01.01", "AOI00008800890", "ACTUALIZACIÓN DEL CURRÍCULO DE PREGRADO"],
@@ -688,7 +681,7 @@ const POI_FACULTADES = [
   ]
  },
  {
-  "sigla": "FIEE", "formulario": null, "cc": "01.26", "nombre": "FACULTAD DE INGENIERÍA ELECTRÓNICA Y ELÉCTRICA",
+  "sigla": "FIEE", "formulario": "F19", "cc": "01.26", "nombre": "FACULTAD DE INGENIERÍA ELECTRÓNICA Y ELÉCTRICA",
   "items": [
    ["AEI.01.01", "AOI00008801296", "APLICACIÓN DE UN PROGRAMA DE VINCULACIÓN Y SEGUIMIENTO AL EGRESADO"],
    ["AEI.01.02", "AOI00008800010", "SELECCIÓN DOCENTE DE ACUERDO AL PERFIL REQUERIDO"],
@@ -737,7 +730,7 @@ const POI_FACULTADES = [
   ]
  },
  {
-  "sigla": "FISI", "formulario": null, "cc": "01.25", "nombre": "FACULTAD DE INGENIERÍA DE SISTEMAS E INFORMÁTICA",
+  "sigla": "FISI", "formulario": "F20", "cc": "01.25", "nombre": "FACULTAD DE INGENIERÍA DE SISTEMAS E INFORMÁTICA",
   "items": [
    ["AEI.01.01", "AOI00008800143", "IMPLEMENTACIÓN DEL CURRÍCULO DE PREGRADO"],
    ["AEI.01.01", "AOI00008800154", "AUTOEVALUACIÓN DEL CURRÍCULO DE PREGRADO"],

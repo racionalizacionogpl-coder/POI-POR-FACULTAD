@@ -1,7 +1,7 @@
 /**
  * POI 2026 por facultad - Desplegables dependientes AEI -> AOI
  * ====================================================================
- * Requiere el archivo Datos.gs (POI_OEI, POI_AEI, POI_FACULTADES).
+ * Requiere el archivo Datos.gs (POI_AEI, POI_FACULTADES).
  *
  * Qué hace
  *  1. Detecta la facultad de cada hoja por su nombre (F01_FM, F09_FCA, ...).
@@ -149,7 +149,6 @@ function contarOcupadas_(hoja) {
 /*  Índices por facultad (AEI -> AOI)                                  */
 /* ------------------------------------------------------------------ */
 
-function oeiDeAei_(codAei) { return 'OEI.' + codAei.split('.')[1]; }
 function etiquetaAoi_(cod, den) { return cod + CFG.SEP + den; }
 
 function indice_(fac) {
@@ -416,9 +415,9 @@ function generarCatalogo() {
   let sh = ss.getSheetByName(CFG.HOJA_CATALOGO);
   if (!sh) sh = ss.insertSheet(CFG.HOJA_CATALOGO);
   sh.clear();
-  const filas = [['FORMULARIO', 'SIGLA', 'CENTRO DE COSTO', 'FACULTAD', 'OEI', 'AEI', 'COD. AOI', 'ACTIVIDAD OPERATIVA']];
+  const filas = [['FORMULARIO', 'SIGLA', 'CENTRO DE COSTO', 'FACULTAD', 'AEI', 'COD. AOI', 'ACTIVIDAD OPERATIVA']];
   POI_FACULTADES.forEach(f => f.items.forEach(it => filas.push([
-    f.formulario || '', f.sigla, f.cc, f.nombre, POI_OEI[oeiDeAei_(it[0])], POI_AEI[it[0]], it[1], it[2]])));
+    f.formulario || '', f.sigla, f.cc, f.nombre, POI_AEI[it[0]], it[1], it[2]])));
   sh.getRange(1, 1, filas.length, filas[0].length).setValues(filas);
   sh.getRange(1, 1, 1, filas[0].length).setFontWeight('bold');
   sh.setFrozenRows(1);

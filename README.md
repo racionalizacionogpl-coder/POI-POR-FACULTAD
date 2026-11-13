@@ -1,5 +1,36 @@
 # POI 2026 por facultad – desplegables AEI → AOI
 
+Hay dos versiones del script, con los mismos datos del POI 2026 (sin OEI):
+
+| Carpeta | Para qué libro | Dónde pone los desplegables |
+|---|---|---|
+| `apps-script-anexo1/` | **ANEXO 1 – Inventario de productos y procesos** (el libro original, con automatizaciones propias) | Solo en **D7 (AEI)** y **E7 (AOI)** de cada hoja de facultad; cada persona copia y pega después |
+| `apps-script/` | Libro "POI POR FACULTADES" (hojas vacías) | Columnas A y B, 300 filas |
+
+## Libro ANEXO 1 (`apps-script-anexo1/`)
+
+1. Extensiones → Apps Script → crear dos archivos y pegar `POI_Datos.gs` y `POI_Codigo.gs`.
+2. Ejecutar **una vez** la función `poiInstalar` (pide autorización). Crea:
+   * dos disparadores instalables (`poiAlEditar` y `poiCrearMenu`),
+   * el menú **POI AEI-AOI**,
+   * la hoja oculta `POI_LISTAS` (origen de los desplegables),
+   * los desplegables en D7/E7 de las 20 hojas de facultad.
+3. Menú **POI AEI-AOI → Diagnóstico** para verificar hoja ↔ facultad.
+
+Convive con las automatizaciones existentes: no define `onEdit` ni `onOpen`, todos sus nombres
+llevan el prefijo `poi`/`POI_`, y **no modifica ningún valor**, solo la validación de D7 y E7.
+Las pestañas "Copia de …" se omiten al aplicar en bloque. Si las hojas tienen rangos protegidos,
+quien ejecute `poiInstalar` debe poder editarlos (los disparadores instalables corren con sus permisos).
+
+**Copiar y pegar:** copiar D7:E7 (o solo D7) y pegar en cualquier celda de la hoja; el AEI pegado
+—por su desplegable o por su texto— deja en la celda de **su derecha** la lista de actividades de ese AEI.
+Si pega AEI + AOI y coinciden se conserva; si no, se limpia la AOI. Un texto propio del libro a la derecha
+no se borra, pero esa celda recibe la lista de actividades. Pegar en otro archivo solo lleva el texto.
+
+---
+
+## Libro "POI POR FACULTADES" (`apps-script/`)
+
 Apps Script para el Google Sheets del POI por facultad. En cada hoja de facultad
 (`F01_FM`, `F02_FDCP`, …) crea dos desplegables encadenados:
 
@@ -67,10 +98,10 @@ del Anexo 1 (por ejemplo `F20_FISI`, aunque F20 sea el formulario de FII).
 | F14_FCM | Ciencias Matemáticas | 01.20 |
 | F15_FCCSS | Ciencias Sociales | 01.21 |
 | F16_FIGMMG | Ing. Geológica, Minera, Metalúrgica y Geográfica | 01.27 |
-| F20_FII | Ingeniería Industrial | 01.28 |
-| (FPSIC) | Psicología | 01.33 |
-| (FIEE) | Ing. Electrónica y Eléctrica | 01.26 |
-| (FISI) | Ing. de Sistemas e Informática | 01.25 |
+| F17_FII | Ingeniería Industrial | 01.28 |
+| F18_FPSIC | Psicología | 01.33 |
+| F19_FIEE | Ing. Electrónica y Eléctrica | 01.26 |
+| F20_FISI | Ing. de Sistemas e Informática | 01.25 |
 
 ## Hojas auxiliares que crea el script
 
@@ -82,5 +113,7 @@ del Anexo 1 (por ejemplo `F20_FISI`, aunque F20 sea el formulario de FII).
 ```bash
 pip install pymupdf
 python3 tools/extraer_poi.py "POI - GENERAL.pdf" apps-script/Datos.gs
-node tools/test_codigo.js   # prueba la lógica con un Sheet simulado
+python3 tools/extraer_poi.py "POI - GENERAL.pdf" apps-script-anexo1/POI_Datos.gs
+node tools/test_codigo.js   # prueba apps-script/ con un Sheet simulado
+node tools/test_anexo1.js   # prueba apps-script-anexo1/
 ```
