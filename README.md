@@ -1,27 +1,40 @@
-# POI 2026 por facultad – desplegables OEI → AEI → AOI
+# POI 2026 por facultad – desplegables AEI → AOI
 
 Apps Script para el Google Sheets del POI por facultad. En cada hoja de facultad
-(`F01_FM`, `F02_FDCP`, …) crea tres desplegables encadenados:
+(`F01_FM`, `F02_FDCP`, …) crea dos desplegables encadenados:
 
-1. **OEI** de la facultad.
-2. **AEI**: al elegir un OEI solo aparecen los AEI de ese OEI.
-3. **AOI**: al elegir un AEI solo aparecen sus actividades operativas, como
-   `AOI00008800777 - EJECUCIÓN DE LOS PROGRAMAS DE POSGRADO` (código + denominación).
+1. **Acción estratégica (AEI)**, columna A: solo los AEI que la facultad tiene en el POI.
+2. **Actividad operativa (AOI)**, columna B: al elegir un AEI solo aparecen sus actividades,
+   como `AOI00008800777 - EJECUCIÓN DE LOS PROGRAMAS DE POSGRADO` (código + denominación).
 
-Si se cambia el OEI o el AEI, los desplegables que dependen de él se limpian y se recalculan.
+Si se cambia el AEI, la AOI se limpia y su lista se recalcula.
 
 Los datos salen del **Anexo B-5 del POI 2026** (PDF "POI - GENERAL", páginas 20-49,
 centros de costo 01.15 a 01.34): 20 facultades, 649 actividades operativas.
 Cada facultad solo muestra lo que tiene en el PDF.
 
+## Copiar y pegar
+
+* **Dentro de la misma hoja o entre hojas del mismo Sheet:** se puede copiar A:B y pegar. Al pegar,
+  el script revisa cada fila: si la AOI pertenece al AEI pegado se conserva; si no, se limpia.
+  Un AEI que la facultad de destino no tiene queda marcado como inválido (triángulo rojo).
+* **A otro archivo, Excel, Word o correo:** se pega el texto (`AEI.01.01 …` y
+  `AOI0000… - …`). Los desplegables no viajan a otro archivo.
+* **Pegar solo el valor:** `Ctrl+Shift+V` evita arrastrar formato y validaciones.
+* **Pegar desde fuera hacia el Sheet:** el texto debe coincidir exactamente con el de las listas.
+* No borrar la hoja oculta `POI_LISTAS`: es el origen de los desplegables.
+* Si se hace *Archivo → Hacer una copia*, el script y las listas se copian con el archivo
+  (hay que autorizarlo de nuevo la primera vez).
+
 ## Instalación (una sola vez)
 
 1. Abrir el Sheet → **Extensiones → Apps Script**.
 2. Crear dos archivos y pegar el contenido de `apps-script/Datos.gs` y `apps-script/Codigo.gs`.
-3. En `Codigo.gs`, revisar `CFG` (sobre todo `FILA_INICIO`, `COL_OEI`, `COL_AEI`, `COL_AOI`).
+3. En `Codigo.gs`, revisar `CFG` (sobre todo `FILA_INICIO`, `COL_AEI`, `COL_AOI`).
 4. Guardar, recargar el Sheet y usar el menú **POI 2026 → Diagnóstico** para verificar que
    cada hoja se asocia a su facultad.
 5. **POI 2026 → 1. Aplicar a TODAS las facultades** (la primera vez pide autorización).
+6. Si las hojas ya se habían aplicado con la versión que tenía OEI: **POI 2026 → 3. Quitar la columna OEI**.
 
 El `onEdit` es un disparador simple: no hay que instalar nada más.
 

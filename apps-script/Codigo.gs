@@ -1,36 +1,34 @@
 /**
- * POI 2026 por facultad - Desplegables dependientes OEI -> AEI -> AOI
+ * POI 2026 por facultad - Desplegables dependientes AEI -> AOI
  * ====================================================================
  * Requiere el archivo Datos.gs (POI_OEI, POI_AEI, POI_FACULTADES).
  *
  * Qué hace
  *  1. Detecta la facultad de cada hoja por su nombre (F01_FM, F09_FCA, ...).
- *  2. En tres columnas de cada hoja crea desplegables encadenados:
- *       OEI  ->  AEI (solo los de ese OEI)  ->  AOI (solo los de ese AEI,
- *       mostrados como "AOI0000XXXXXXX - DENOMINACIÓN").
- *  3. Al cambiar un desplegable, el onEdit limpia y recalcula los que dependen
- *     de él, así que cada AEI muestra únicamente sus actividades operativas.
+ *  2. En dos columnas de cada hoja crea desplegables encadenados:
+ *       ACCIÓN ESTRATÉGICA (AEI)  ->  ACTIVIDAD OPERATIVA (AOI)
+ *     La AOI se muestra como "AOI0000XXXXXXX - DENOMINACIÓN" y solo ofrece las
+ *     actividades del AEI elegido.
+ *  3. Al cambiar el AEI, el onEdit limpia y recalcula la AOI.
  *
  * Uso: menú "POI 2026" (aparece al abrir el Sheet) -> "1. Aplicar a TODAS las
- * facultades". Antes ajuste CFG si las columnas no son A, B y C.
+ * facultades". Antes ajuste CFG si las columnas no son A y B.
  */
 
 const CFG = {
   FILA_INICIO: 2,   // primera fila de datos (la fila anterior es el encabezado)
   FILAS: 300,       // cuántas filas quedan con desplegables
-  COL_OEI: 1,       // A  (número de columna: A=1, B=2, C=3, ...)
-  COL_AEI: 2,       // B
-  COL_AOI: 3,       // C  (código - denominación)
+  COL_AEI: 1,       // A  (número de columna: A=1, B=2, C=3, ...)  Acción estratégica
+  COL_AOI: 2,       // B  Actividad operativa (código - denominación)
   COL_COD: 0,       // opcional: columna donde se copia SOLO el código AOI (0 = no usar)
   COL_DENOM: 0,     // opcional: columna donde se copia SOLO la denominación (0 = no usar)
   ESCRIBIR_ENCABEZADOS: true,  // solo escribe si la celda de encabezado está vacía
-  ENCABEZADOS: ['OEI', 'AEI', 'AOI (CÓDIGO - DENOMINACIÓN)'],
+  ENCABEZADOS: ['ACCIÓN ESTRATÉGICA (AEI)', 'ACTIVIDAD OPERATIVA (CÓDIGO - DENOMINACIÓN)'],
   FORMATO: true,    // ajusta ancho y ajuste de texto de esas columnas
-  ANCHOS: [330, 330, 420],
+  ANCHOS: [330, 420],
   SEP: ' - ',
   HOJA_LISTAS: 'POI_LISTAS',
   HOJA_CATALOGO: 'POI_CATALOGO',
-  PH_AEI: '(Seleccione primero el OEI)',
   PH_AOI: '(Seleccione primero el AEI)',
   MAX_FILAS_POR_EDICION: 200,
 };
@@ -43,6 +41,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('POI 2026')
     .addItem('1. Aplicar a TODAS las facultades', 'aplicarATodas')
     .addItem('2. Aplicar solo a la hoja activa', 'aplicarAHojaActiva')
+    .addItem('3. Quitar la columna OEI (hojas hechas con la versión anterior)', 'quitarColumnaOei')
     .addSeparator()
     .addItem('Diagnóstico (qué hoja corresponde a qué facultad)', 'diagnostico')
     .addItem('Generar hoja POI_CATALOGO (consulta)', 'generarCatalogo')
@@ -61,7 +60,7 @@ function aplicarATodas() {
   const conDatos = hojas.filter(h => contarOcupadas_(h.hoja) > 0).map(h => h.hoja.getName());
   if (conDatos.length) {
     const r = ui.alert('Columnas con contenido',
-      'Estas hojas ya tienen datos en las columnas configuradas (OEI/AEI/AOI):\n\n' +
+      'Estas hojas ya tienen datos en las columnas configuradas (AEI/AOI):\n\n' +
       conDatos.join(', ') + '\n\nSe reemplazarán SOLO las validaciones (desplegables); los valores no se borran.\n¿Continuar?',
       ui.ButtonSet.YES_NO);
     if (r !== ui.Button.YES) return;
@@ -136,7 +135,7 @@ function FACULTADES_SIN_HOJA_(hojas) {
 
 function contarOcupadas_(hoja) {
   let n = 0;
-  [CFG.COL_OEI, CFG.COL_AEI, CFG.COL_AOI].forEach(c => {
+  [CFG.COL_AEI, CFG.COL_AOI].forEach(c => {
     const max = hoja.getMaxRows();
     if (CFG.FILA_INICIO > max) return;
     const filas = Math.min(CFG.FILAS, max - CFG.FILA_INICIO + 1);
@@ -147,7 +146,7 @@ function contarOcupadas_(hoja) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Índices por facultad (OEI -> AEI -> AOI)                           */
+/*  Índices por facultad (AEI -> AOI)                                  */
 /* ------------------------------------------------------------------ */
 
 function oeiDeAei_(codAei) { return 'OEI.' + codAei.split('.')[1]; }
@@ -155,19 +154,14 @@ function etiquetaAoi_(cod, den) { return cod + CFG.SEP + den; }
 
 function indice_(fac) {
   if (fac._idx) return fac._idx;
-  const idx = { oeis: [], aeisPorOei: {}, aoisPorAei: {}, aeiPorEtiqueta: {}, oeiPorEtiqueta: {},
-                aoiPorEtiqueta: {} };
+  const idx = { aeis: [], aoisPorAei: {}, aeiPorEtiqueta: {}, aoiPorEtiqueta: {} };
   fac.items.forEach(it => {
-    const codAei = it[0], codOei = oeiDeAei_(codAei);
-    if (idx.oeis.indexOf(codOei) < 0) idx.oeis.push(codOei);
-    (idx.aeisPorOei[codOei] = idx.aeisPorOei[codOei] || []);
-    if (idx.aeisPorOei[codOei].indexOf(codAei) < 0) idx.aeisPorOei[codOei].push(codAei);
+    const codAei = it[0];
+    if (idx.aeis.indexOf(codAei) < 0) idx.aeis.push(codAei);
     (idx.aoisPorAei[codAei] = idx.aoisPorAei[codAei] || []).push({ cod: it[1], den: it[2] });
   });
-  idx.oeis.sort();
-  Object.keys(idx.aeisPorOei).forEach(k => idx.aeisPorOei[k].sort());
-  idx.oeis.forEach(o => idx.oeiPorEtiqueta[POI_OEI[o]] = o);
-  Object.keys(idx.aoisPorAei).forEach(a => {
+  idx.aeis.sort();
+  idx.aeis.forEach(a => {
     idx.aeiPorEtiqueta[POI_AEI[a]] = a;
     idx.aoisPorAei[a].forEach(x => idx.aoiPorEtiqueta[etiquetaAoi_(x.cod, x.den)] = { aei: a, cod: x.cod, den: x.den });
   });
@@ -188,14 +182,12 @@ function disposicionListas_() {
     mapa[clave] = { fila: FILA0 + filas.length, n: valores.length };
     valores.forEach(v => filas.push([v, tipo, sigla, padre]));
   };
-  add('PH_AEI', 'PLACEHOLDER', '', '', [CFG.PH_AEI]);
   add('PH_AOI', 'PLACEHOLDER', '', '', [CFG.PH_AOI]);
   POI_FACULTADES.forEach(f => {
     const idx = indice_(f);
-    add(f.sigla + '|OEI', 'OEI', f.sigla, '', idx.oeis.map(o => POI_OEI[o]));
-    idx.oeis.forEach(o => add(f.sigla + '|' + o, 'AEI', f.sigla, o, idx.aeisPorOei[o].map(a => POI_AEI[a])));
-    idx.oeis.forEach(o => idx.aeisPorOei[o].forEach(a =>
-      add(f.sigla + '|' + a, 'AOI', f.sigla, a, idx.aoisPorAei[a].map(x => etiquetaAoi_(x.cod, x.den)))));
+    add(f.sigla + '|AEI', 'AEI', f.sigla, '', idx.aeis.map(a => POI_AEI[a]));
+    idx.aeis.forEach(a =>
+      add(f.sigla + '|' + a, 'AOI', f.sigla, a, idx.aoisPorAei[a].map(x => etiquetaAoi_(x.cod, x.den))));
   });
   return { filas: filas, mapa: mapa };
 }
@@ -240,50 +232,73 @@ function aplicarHoja_(hoja, fac, listas) {
   if (hoja.getMaxRows() < r0 + n - 1) hoja.insertRowsAfter(hoja.getMaxRows(), r0 + n - 1 - hoja.getMaxRows());
 
   if (CFG.ESCRIBIR_ENCABEZADOS && r0 > 1) {
-    [CFG.COL_OEI, CFG.COL_AEI, CFG.COL_AOI].forEach((c, i) => {
+    [CFG.COL_AEI, CFG.COL_AOI].forEach((c, i) => {
       const celda = hoja.getRange(r0 - 1, c);
       if (String(celda.getValue()).trim() === '') celda.setValue(CFG.ENCABEZADOS[i]).setFontWeight('bold');
     });
   }
   if (CFG.FORMATO) {
-    [CFG.COL_OEI, CFG.COL_AEI, CFG.COL_AOI].forEach((c, i) => {
+    [CFG.COL_AEI, CFG.COL_AOI].forEach((c, i) => {
       hoja.setColumnWidth(c, CFG.ANCHOS[i]);
       hoja.getRange(r0, c, n, 1).setWrap(true).setVerticalAlignment('middle');
     });
   }
 
-  // Estado base de todas las filas: OEI libre dentro de su lista, AEI/AOI bloqueados por placeholder.
-  hoja.getRange(r0, CFG.COL_OEI, n, 1).setDataValidation(
-    reglaDeLista_(listas, fac.sigla + '|OEI', 'Seleccione el OEI de la lista'));
-  hoja.getRange(r0, CFG.COL_AEI, n, 1).setDataValidation(
-    reglaDeLista_(listas, 'PH_AEI', CFG.PH_AEI));
+  // Estado base: AEI libre dentro de la lista de la facultad; AOI bloqueada hasta elegir AEI.
+  hoja.getRange(r0, CFG.COL_AEI, n, 1).setDataValidation(reglaAei_(listas, fac));
   hoja.getRange(r0, CFG.COL_AOI, n, 1).setDataValidation(
     reglaDeLista_(listas, 'PH_AOI', CFG.PH_AOI));
 
-  // Filas que ya traen valores: dejar sus listas dependientes consistentes.
+  // Filas que ya traen un AEI: dejar su lista de AOI consistente.
   const idx = indice_(fac);
-  const col = c => hoja.getRange(r0, c, n, 1).getValues().map(r => String(r[0]).trim());
-  const vo = col(CFG.COL_OEI), va = col(CFG.COL_AEI);
+  const va = hoja.getRange(r0, CFG.COL_AEI, n, 1).getValues().map(r => String(r[0]).trim());
   for (let i = 0; i < n; i++) {
-    if (vo[i] || va[i]) refrescarListasFila_(hoja, fac, idx, listas, r0 + i, vo[i], va[i]);
+    if (va[i]) refrescarListaAoi_(hoja, fac, idx, listas, r0 + i, va[i]);
   }
 }
 
-/** Fija las listas de AEI y AOI de una fila según los valores actuales de OEI y AEI. */
-function refrescarListasFila_(hoja, fac, idx, listas, fila, oeiTxt, aeiTxt) {
-  const codOei = idx.oeiPorEtiqueta[oeiTxt];
+function reglaAei_(listas, fac) {
+  return reglaDeLista_(listas, fac.sigla + '|AEI', 'Seleccione la acción estratégica de la lista');
+}
+
+/** Fija la lista de AOI de una fila según el AEI actual. */
+function refrescarListaAoi_(hoja, fac, idx, listas, fila, aeiTxt) {
   const codAei = idx.aeiPorEtiqueta[aeiTxt];
-  const aeiOk = codAei && codOei && oeiDeAei_(codAei) === codOei;
-
-  const reglaAei = codOei
-    ? reglaDeLista_(listas, fac.sigla + '|' + codOei, 'Seleccione el AEI de la lista')
-    : reglaDeLista_(listas, 'PH_AEI', CFG.PH_AEI);
-  hoja.getRange(fila, CFG.COL_AEI).setDataValidation(reglaAei);
-
-  const reglaAoi = aeiOk
+  const regla = codAei
     ? reglaDeLista_(listas, fac.sigla + '|' + codAei, 'Seleccione la actividad operativa (código - denominación)')
     : reglaDeLista_(listas, 'PH_AOI', CFG.PH_AOI);
-  hoja.getRange(fila, CFG.COL_AOI).setDataValidation(reglaAoi);
+  hoja.getRange(fila, CFG.COL_AOI).setDataValidation(regla);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Migración desde la versión con OEI                                 */
+/* ------------------------------------------------------------------ */
+
+/** Borra la columna OEI (columna A) de las hojas hechas con la versión anterior y reaplica. */
+function quitarColumnaOei() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActive();
+  const hojas = hojasDeFacultad_(ss);
+  const antiguas = hojas.filter(h =>
+    String(h.hoja.getRange(CFG.FILA_INICIO - 1, 1).getValue()).trim().toUpperCase() === 'OEI');
+  if (!antiguas.length) {
+    ui.alert('No hay hojas con la columna "OEI" en A' + (CFG.FILA_INICIO - 1) + '. Nada que quitar.');
+    return;
+  }
+  const r = ui.alert('Quitar columna OEI',
+    'Se ELIMINARÁ la columna A (OEI) de ' + antiguas.length + ' hojas y las demás columnas se correrán a la izquierda.\n' +
+    'El AEI quedará en A y la AOI en B.\n\n¿Continuar?', ui.ButtonSet.YES_NO);
+  if (r !== ui.Button.YES) return;
+  const listas = generarListas_(ss);
+  antiguas.forEach(h => {
+    h.hoja.deleteColumn(1);
+    if (CFG.ESCRIBIR_ENCABEZADOS && CFG.FILA_INICIO > 1) {
+      [CFG.COL_AEI, CFG.COL_AOI].forEach((c, i) =>
+        h.hoja.getRange(CFG.FILA_INICIO - 1, c).setValue(CFG.ENCABEZADOS[i]).setFontWeight('bold'));
+    }
+    aplicarHoja_(h.hoja, h.fac, listas);
+  });
+  ss.toast('Columna OEI quitada en ' + antiguas.length + ' hojas.', 'POI 2026', 8);
 }
 
 /* ------------------------------------------------------------------ */
@@ -300,11 +315,10 @@ function onEdit(e) {
     const rg = e.range;
     const cIni = rg.getColumn(), cFin = cIni + rg.getNumColumns() - 1;
     const editadas = {
-      OEI: CFG.COL_OEI >= cIni && CFG.COL_OEI <= cFin,
       AEI: CFG.COL_AEI >= cIni && CFG.COL_AEI <= cFin,
       AOI: CFG.COL_AOI >= cIni && CFG.COL_AOI <= cFin,
     };
-    if (!editadas.OEI && !editadas.AEI && !editadas.AOI) return;
+    if (!editadas.AEI && !editadas.AOI) return;
 
     const fIni = Math.max(rg.getRow(), CFG.FILA_INICIO);
     const fFin = Math.min(rg.getRow() + rg.getNumRows() - 1, CFG.FILA_INICIO + CFG.FILAS - 1,
@@ -321,40 +335,25 @@ function onEdit(e) {
 }
 
 function procesarFila_(hoja, fac, idx, listas, fila, editadas) {
-  const cO = hoja.getRange(fila, CFG.COL_OEI);
   const cA = hoja.getRange(fila, CFG.COL_AEI);
   const cP = hoja.getRange(fila, CFG.COL_AOI);
-  let oei = String(cO.getValue()).trim();
-  let aei = String(cA.getValue()).trim();
+  const aei = String(cA.getValue()).trim();
   let aoi = String(cP.getValue()).trim();
 
   // Un placeholder elegido por error equivale a vacío.
-  if (aei === CFG.PH_AEI) { aei = ''; cA.clearContent(); }
   if (aoi === CFG.PH_AOI) { aoi = ''; cP.clearContent(); }
 
-  // Se eligió un AEI (o se pegó): el OEI se alinea con el padre del AEI.
-  if (editadas.AEI && !editadas.OEI && idx.aeiPorEtiqueta[aei]) {
-    const padre = POI_OEI[oeiDeAei_(idx.aeiPorEtiqueta[aei])];
-    if (oei !== padre) { cO.setValue(padre); oei = padre; }
-  }
-
-  const codOei = idx.oeiPorEtiqueta[oei];
-  let codAei = idx.aeiPorEtiqueta[aei];
-
-  // Cambió el OEI: el AEI actual debe pertenecer a ese OEI, si no se limpia.
-  if (editadas.OEI && !(codAei && codOei && oeiDeAei_(codAei) === codOei)) {
-    if (aei !== '') cA.clearContent();
-    aei = ''; codAei = undefined;
-  }
-  // AEI vacío o inválido: no puede haber AOI.
-  const aeiOk = codAei && codOei && oeiDeAei_(codAei) === codOei;
+  const codAei = idx.aeiPorEtiqueta[aei];
   let datosAoi = idx.aoiPorEtiqueta[aoi];
-  if (!aeiOk || (datosAoi && datosAoi.aei !== codAei)) {
-    // El AOI no corresponde al AEI actual (o no hay AEI): se limpia.
-    if (aoi !== '' && (editadas.OEI || editadas.AEI)) { cP.clearContent(); aoi = ''; datosAoi = undefined; }
+
+  // Cambió (o se pegó) el AEI: la AOI actual debe pertenecer a él; si no, se limpia.
+  if (editadas.AEI && aoi !== '' && !(codAei && datosAoi && datosAoi.aei === codAei)) {
+    cP.clearContent(); aoi = ''; datosAoi = undefined;
   }
 
-  refrescarListasFila_(hoja, fac, idx, listas, fila, oei, aei);
+  // Se restablece la lista del AEI (por si se pegó desde otra hoja con otra validación).
+  if (editadas.AEI) cA.setDataValidation(reglaAei_(listas, fac));
+  refrescarListaAoi_(hoja, fac, idx, listas, fila, aei);
 
   // Columnas opcionales: código y denominación por separado.
   if (CFG.COL_COD > 0) hoja.getRange(fila, CFG.COL_COD).setValue(datosAoi ? datosAoi.cod : '');
